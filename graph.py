@@ -5,6 +5,7 @@ Contains the in-memory graph representation of the railway network
 and the BFS algorithm to find indirect split-seat routes.
 """
 from collections import deque
+from datetime import datetime, timedelta
 
 class TrainSegment:
     def __init__(self, train_id, source, dest, departure_time, arrival_time, seats_available):
@@ -95,11 +96,22 @@ def find_routes(source, target):
                 continue
                 
             # Basic temporal validation: departure logic
-            # A connection is only valid if departure of next train is AFTER arrival of previous train
             if current_path:
                 prev_arrival = current_path[-1].arrival_time
-                if segment.departure_time < prev_arrival:
-                    continue # Train departs before the previous one arrives
+                
+                fmt = "%H:%M"
+                arr_time = datetime.strptime(prev_arrival, fmt)
+                dep_time = datetime.strptime(segment.departure_time, fmt)
+                
+                # If departure time is earlier than arrival, assume it's a next-day connection
+                if dep_time < arr_time:
+                    dep_time += timedelta(days=1)
+                    
+                wait_time_minutes = (dep_time - arr_time).total_seconds() / 60
+                
+                # Reject connections with layovers longer than 12 hours to prevent endless waits
+                if wait_time_minutes > 12 * 60:
+                    continue
             
             # Create a new path and add it to queue
             new_path = list(current_path)
